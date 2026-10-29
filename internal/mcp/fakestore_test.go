@@ -15,6 +15,7 @@ import (
 // (issue #73-C1, Phase B), not the whole *store.Store god-object. It records the
 // record-tool path and serves canned reads.
 type fakeMCPStore struct {
+	state    store.ArchiveState
 	obs      []store.Observation
 	facets   []store.Facet
 	profiles map[string]string
@@ -32,6 +33,8 @@ type fakeMCPStore struct {
 	// TestServerRecordDeleteSearch sets it to true.
 	stagedReturn bool
 }
+
+func (f *fakeMCPStore) ArchiveState(string) (store.ArchiveState, error) { return f.state, nil }
 
 func (f *fakeMCPStore) ReadObservations(lens string) ([]store.Observation, error) {
 	f.readCalls++

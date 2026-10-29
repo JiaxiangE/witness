@@ -11,6 +11,7 @@ import (
 
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/IngTian/witness/internal/archiveview"
 	"github.com/IngTian/witness/internal/store"
 	"github.com/IngTian/witness/internal/vector"
 )
@@ -208,11 +209,24 @@ func newServer(st store.MCPStore, emb Embedder, version string, refresh RefreshP
 		if err != nil {
 			return errResult(fmt.Sprintf("read archive: %v", err)), nil, nil
 		}
+		hasLens := false
+		for _, o := range obs {
+			if o.Lens == lens {
+				hasLens = true
+				break
+			}
+		}
+		if !hasLens {
+			return emptyResult(st, "observations", lens), nil, nil
+		}
 		qv, err := emb.Embed(query)
 		if err != nil {
 			return errResult(fmt.Sprintf("embed query: %v", err)), nil, nil
 		}
 		hits := vector.Search(obs, qv, lens, k)
+		if len(hits) == 0 {
+			return emptyResult(st, "observations", lens), nil, nil
+		}
 		return textResult(renderHits(lens, hits)), nil, nil
 	})
 
@@ -291,6 +305,16 @@ func newServer(st store.MCPStore, emb Embedder, version string, refresh RefreshP
 		if err != nil {
 			return errResult(fmt.Sprintf("read facets: %v", err)), nil, nil
 		}
+		hasCurrent := false
+		for _, f := range facets {
+			if f.Lens == lensName && f.Current() != nil {
+				hasCurrent = true
+				break
+			}
+		}
+		if !hasCurrent {
+			return emptyResult(st, "facets", lensName), nil, nil
+		}
 		return textResult(renderFacets(lensName, facets)), nil, nil
 	})
 
@@ -329,7 +353,7 @@ func newServer(st store.MCPStore, emb Embedder, version string, refresh RefreshP
 			return errResult(fmt.Sprintf("read profile: %v", err)), nil, nil
 		}
 		if !ok {
-			return textResult(fmt.Sprintf("No narrative profile for '%s' yet — nothing has been distilled for it. Use get_facets for the current structured attributes.", lensName)), nil, nil
+			return emptyResult(st, "profile", lensName), nil, nil
 		}
 		return textResult(md + stale), nil, nil
 	})
@@ -363,6 +387,14 @@ func newServer(st store.MCPStore, emb Embedder, version string, refresh RefreshP
 
 func textResult(s string) *mcpsdk.CallToolResult {
 	return &mcpsdk.CallToolResult{Content: []mcpsdk.Content{&mcpsdk.TextContent{Text: s}}}
+}
+
+func emptyResult(st store.MCPStore, kind, lens string) *mcpsdk.CallToolResult {
+	msg, err := archiveview.EmptyMessage(st, kind, lens)
+	if err != nil {
+		return errResult(fmt.Sprintf("read archive state: %v", err))
+	}
+	return textResult(msg)
 }
 func errResult(s string) *mcpsdk.CallToolResult {
 	return &mcpsdk.CallToolResult{IsError: true, Content: []mcpsdk.Content{&mcpsdk.TextContent{Text: s}}}
@@ -400,7 +432,7 @@ func renderFacets(lensName string, facets []store.Facet) string {
 		count++
 	}
 	if count == 0 {
-		return fmt.Sprintf("No facets found for lens '%s'. The reviewer may not have run yet.", lensName)
+		return fmt.Sprintf("No facets found for lens '%s'.", lensName)
 	}
 	header := fmt.Sprintf("Growth facets (%s lens) — %d:\n\n", lensName, count)
 	return header + b.String()

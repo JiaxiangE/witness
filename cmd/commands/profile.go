@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/IngTian/witness/internal/archiveview"
 	"github.com/IngTian/witness/internal/store"
 	"github.com/spf13/cobra"
 )
@@ -68,7 +69,11 @@ func cmdProfile(args []string, asJSON bool) error {
 		return emitJSON(out)
 	}
 	if !ok {
-		fmt.Printf("no profile summary for %q yet — it's generated after the next background review.\n", lensName)
+		msg, err := archiveview.EmptyMessage(st, "profile", lensName)
+		if err != nil {
+			return err
+		}
+		fmt.Println(msg)
 		return nil
 	}
 	// Decorative freshness header only; the profile body (md) is LLM-authored

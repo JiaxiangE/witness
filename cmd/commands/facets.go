@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/IngTian/witness/internal/archiveview"
 	"github.com/IngTian/witness/internal/store"
 	"github.com/spf13/cobra"
 )
@@ -55,6 +56,23 @@ func cmdFacets(args []string, asJSON bool) error {
 	// (review only iterates the enabled set), so that hint must point at `lens enable`.
 	registered := slices.Contains(st.RegisteredLenses(), lensName)
 	enabled := slices.Contains(st.LoadConfig().EnabledLenses, lensName)
+	if registered && enabled {
+		hasCurrent := false
+		for _, f := range facets {
+			if f.Lens == lensName && f.Current() != nil {
+				hasCurrent = true
+				break
+			}
+		}
+		if !hasCurrent {
+			msg, err := archiveview.EmptyMessage(st, "facets", lensName)
+			if err != nil {
+				return err
+			}
+			fmt.Println(msg)
+			return nil
+		}
+	}
 	renderCurrentFacets(lensName, facets, registered, enabled)
 	return nil
 }

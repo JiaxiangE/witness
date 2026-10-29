@@ -101,6 +101,7 @@ type ActiveObservationSink interface {
 // profile/facets reads + a targeted observation delete). Passing this instead of
 // *Store lets the server be built against a fake.
 type MCPStore interface {
+	ArchiveState(lens string) (ArchiveState, error)
 	ObservationReader
 	ActiveObservationSink
 	ReadFacets() ([]Facet, error)

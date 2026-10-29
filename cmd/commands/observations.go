@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/IngTian/witness/internal/archiveview"
 	"github.com/IngTian/witness/internal/embed"
 	"github.com/IngTian/witness/internal/store"
 	"github.com/IngTian/witness/internal/vector"
@@ -98,15 +99,25 @@ func cmdObservationSearch(query, lensName string, k int, asJSON bool) error {
 	if err != nil {
 		return err
 	}
-	emb, err := embed.New()
-	if err != nil {
-		return err
+	hasLens := false
+	for _, o := range obs {
+		if o.Lens == lensName {
+			hasLens = true
+			break
+		}
 	}
-	qv, err := emb.Embed(query)
-	if err != nil {
-		return err
+	var hits []vector.Hit
+	if hasLens {
+		emb, err := embed.New()
+		if err != nil {
+			return err
+		}
+		qv, err := emb.Embed(query)
+		if err != nil {
+			return err
+		}
+		hits = vector.Search(obs, qv, lensName, k)
 	}
-	hits := vector.Search(obs, qv, lensName, k)
 	if asJSON {
 		out := observationSearchJSON{Lens: lensName, Query: query, Limit: k, Hits: []observationHitJSON{}}
 		for _, h := range hits {
@@ -125,7 +136,15 @@ func cmdObservationSearch(query, lensName string, k int, asJSON bool) error {
 		}
 		return emitJSON(out)
 	}
-	renderObservationHits(lensName, hits)
+	if len(hits) == 0 {
+		msg, err := archiveview.EmptyMessage(st, "observations", lensName)
+		if err != nil {
+			return err
+		}
+		fmt.Println(msg)
+	} else {
+		renderObservationHits(lensName, hits)
+	}
 	return nil
 }
 
